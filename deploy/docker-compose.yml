@@ -1,0 +1,68 @@
+name: kashtrix-broadcast
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: kashtrix
+      MYSQL_USER: kashtrix
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [internal]
+
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    networks: [internal]
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql+pymysql://kashtrix:${MYSQL_PASSWORD}@mysql:3306/kashtrix?charset=utf8mb4
+      PRISMA_DATABASE_URL: mysql://kashtrix:${MYSQL_PASSWORD}@mysql:3306/kashtrix
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      TENANT_NAME: ${TENANT_NAME:-My TV Channel}
+      TENANT_PLAN: ${TENANT_PLAN:-broadcast_plus}
+      PLAYOUT_DRY_RUN: ${PLAYOUT_DRY_RUN:-0}
+      DATA_DIR: /app/data
+      INGEST_URL: rtmp://mediamtx:1935/channel1
+      SOURCE_URL: rtmp://mediamtx:1935/channel1
+      HLS_ORIGIN: http://mediamtx:8888
+      BROADCAST_TZ: Asia/Kathmandu
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
+      MAX_UPLOAD_GB: ${MAX_UPLOAD_GB:-4}
+      ALLOW_PRIVATE_OUTPUTS: ${ALLOW_PRIVATE_OUTPUTS:-0}
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      mysql: {condition: service_healthy}
+      mediamtx: {condition: service_started}
+    networks: [internal]
+
+  caddy:
+    image: caddy:2.9
+    restart: unless-stopped
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on: [app,mediamtx]
+    networks: [internal]
+volumes:
+  mysql_data:
+  app_data:
+networks:
+  internal:

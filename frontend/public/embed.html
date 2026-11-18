@@ -1,0 +1,7 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Kashtrix TV Stream Player</title><style>html,body{margin:0;background:#090d1a;height:100%;display:grid;place-items:center;color:#fff;font-family:system-ui}video{width:100%;height:100%;object-fit:contain}#status{position:absolute;bottom:8px;left:12px;font-size:12px;background:#170d2dbb;padding:6px}</style></head><body><video id="player" controls autoplay muted playsinline></video><div id="status">Connecting to live channel…</div><script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js"></script><script>
+const video=document.querySelector('#player'),status=document.querySelector('#status');
+const src=new URL('/hls/channel1/index.m3u8',location.origin).href;
+if(window.Hls&&Hls.isSupported()){const hls=new Hls({liveSyncDurationCount:3});hls.loadSource(src);hls.attachMedia(video);hls.on(Hls.Events.MANIFEST_PARSED,()=>status.textContent='Live');hls.on(Hls.Events.ERROR,(event,data)=>{if(data.fatal)status.textContent='Stream unavailable';});}
+else if(video.canPlayType('application/vnd.apple.mpegurl')){video.src=src;video.addEventListener('loadedmetadata',()=>status.textContent='Live');}
+else status.textContent='HLS playback is not supported in this browser.';
+</script></body></html>

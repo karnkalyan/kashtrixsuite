@@ -1,0 +1,530 @@
+datasource db {
+  provider = "mysql"
+  url      = env("PRISMA_DATABASE_URL")
+}
+
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "sync"
+  recursive_type_depth = 5
+}
+
+model Tenant {
+  id               Int       @id @default(autoincrement())
+  name             String    @db.VarChar(180)
+  slug             String    @unique(map: "slug") @db.VarChar(80)
+  plan             String?   @default("broadcast_plus") @db.VarChar(32)
+  max_outputs      Int?      @default(8)
+  storage_quota_gb Int?      @default(450)
+  created_at       DateTime? @default(now()) @db.DateTime(0)
+  users            User[]
+  channels         Channel[]
+
+  @@map("tenants")
+}
+
+model SubscriptionPlan {
+  id                String   @id @db.VarChar(32)
+  name              String   @db.VarChar(80)
+  price_npr         Int
+  billing_cycle     String   @default("month") @db.VarChar(20)
+  vcpu              Int      @default(4)
+  ram_gb            Int      @default(8)
+  storage_gb        Int      @default(150)
+  max_outputs       Int      @default(2)
+  protocols         String   @db.VarChar(180)
+  support_tier      String   @db.VarChar(180)
+  description       String   @db.Text
+  entitlements_json String   @db.Text
+  sort_order        Int      @default(0)
+  created_at        DateTime @default(now()) @db.DateTime(0)
+
+  @@map("subscription_plans")
+}
+
+model PlanEntitlement {
+  id            Int     @id @default(autoincrement())
+  plan_id       String  @db.VarChar(32)
+  feature_key   String  @db.VarChar(80)
+  feature_value String  @db.Text
+  enabled       Boolean @default(true)
+
+  @@unique([plan_id, feature_key], map: "uq_plan_feature")
+  @@index([plan_id], map: "ix_plan_entitlements_plan_id")
+  @@map("plan_entitlements")
+}
+
+model TenantSubscription {
+  id           Int      @id @default(autoincrement())
+  tenant_id    Int      @unique(map: "uq_tenant_subscription")
+  plan_id      String   @db.VarChar(32)
+  status       String   @default("active") @db.VarChar(24)
+  is_demo      Boolean  @default(true)
+  activated_by Int?
+  activated_at DateTime @default(now()) @db.DateTime(0)
+  updated_at   DateTime @default(now()) @db.DateTime(0)
+
+  @@index([plan_id], map: "ix_tenant_subscriptions_plan_id")
+  @@map("tenant_subscriptions")
+}
+
+model SubscriptionHistory {
+  id          Int      @id @default(autoincrement())
+  tenant_id   Int
+  old_plan_id String?  @db.VarChar(32)
+  new_plan_id String   @db.VarChar(32)
+  changed_by  Int?
+  reason      String?  @db.VarChar(200)
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id], map: "ix_subscription_history_tenant_id")
+  @@map("subscription_history")
+}
+
+model ResourceUsage {
+  tenant_id          Int
+  channel_id         Int
+  storage_used_bytes BigInt   @default(0)
+  media_count        Int      @default(0)
+  active_outputs     Int      @default(0)
+  total_outputs      Int      @default(0)
+  active_cg_layers   Int      @default(0)
+  active_schedules   Int      @default(0)
+  updated_at         DateTime @default(now()) @db.DateTime(0)
+
+  @@id([tenant_id, channel_id])
+  @@map("resource_usage")
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  tenant_id     Int
+  username      String         @db.VarChar(100)
+  password_hash String         @db.VarChar(300)
+  role          String?        @default("viewer") @db.VarChar(20)
+  enabled       Boolean?       @default(true)
+  created_at    DateTime?      @default(now()) @db.DateTime(0)
+  tenant        Tenant         @relation(fields: [tenant_id], references: [id])
+  sessions      SessionToken[]
+
+  @@unique([tenant_id, username], map: "uq_tenant_user")
+  @@index([tenant_id], map: "ix_users_tenant_id")
+  @@map("users")
+}
+
+model SessionToken {
+  token_hash String @id @db.VarChar(64)
+  user_id    Int?
+  expires    BigInt
+  user       User?  @relation(fields: [user_id], references: [id])
+
+  @@index([user_id], map: "ix_sessions_user_id")
+  @@map("sessions")
+}
+
+model Channel {
+  id        Int      @id @default(autoincrement())
+  tenant_id Int?
+  name      String   @db.VarChar(150)
+  slug      String   @db.VarChar(80)
+  enabled   Boolean? @default(true)
+  tenant    Tenant?  @relation(fields: [tenant_id], references: [id])
+
+  @@unique([tenant_id, slug], map: "uq_channel_slug")
+  @@index([tenant_id], map: "ix_channels_tenant_id")
+  @@map("channels")
+}
+
+model Media {
+  id             Int            @id @default(autoincrement())
+  tenant_id      Int?
+  channel_id     Int?
+  title          String         @db.VarChar(250)
+  filename       String         @db.VarChar(250)
+  mime           String?        @db.VarChar(110)
+  folder         String?        @default("General") @db.VarChar(100)
+  category       String?        @default("video") @db.VarChar(40)
+  duration       Float?         @default(0) @db.Float
+  size           BigInt?        @default(0)
+  width          Int?           @default(0)
+  height         Int?           @default(0)
+  codec          String?        @default("") @db.VarChar(60)
+  has_audio      Boolean?       @default(true)
+  created_at     DateTime?      @default(now()) @db.DateTime(0)
+  playlist_items PlaylistItem[]
+
+  @@index([tenant_id], map: "ix_media_tenant_id")
+  @@index([channel_id], map: "ix_media_channel_id")
+  @@map("media")
+}
+
+model MusicMetadata {
+  id                 Int      @id @default(autoincrement())
+  tenant_id          Int
+  channel_id         Int
+  media_id           Int      @unique(map: "uq_music_metadata_media")
+  song_title         String?  @db.VarChar(250)
+  artist             String?  @db.VarChar(250)
+  album              String?  @db.VarChar(250)
+  music_director     String?  @db.VarChar(200)
+  composer           String?  @db.VarChar(200)
+  lyricist           String?  @db.VarChar(200)
+  record_label       String?  @db.VarChar(200)
+  release_year       String?  @db.VarChar(20)
+  genre              String?  @db.VarChar(100)
+  language           String?  @default("Nepali") @db.VarChar(80)
+  copyright_credit   String?  @db.Text
+  custom_fields_json String?  @db.Text
+  override_enabled   Boolean  @default(false)
+  start_delay_sec    Int?
+  start_duration_sec Int?
+  end_lead_sec       Int?
+  end_duration_sec   Int?
+  template_id        Int?
+  template_key       String?  @db.VarChar(80)
+  animation          String?  @db.VarChar(40)
+  updated_at         DateTime @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id, channel_id], map: "ix_music_metadata_tenant_channel")
+  @@map("music_metadata")
+}
+
+model ChannelMusicCGSetting {
+  tenant_id           Int
+  channel_id          Int
+  enabled             Boolean  @default(true)
+  show_at_start       Boolean  @default(true)
+  start_delay_sec     Int      @default(20)
+  start_duration_sec  Int      @default(10)
+  show_before_end     Boolean  @default(true)
+  end_lead_sec        Int      @default(30)
+  end_duration_sec    Int      @default(10)
+  template_id         Int?
+  template_key        String   @default("music_now_playing_gradient") @db.VarChar(80)
+  visible_fields_json String   @default("[\"song_title\",\"artist\",\"album\"]") @db.VarChar(400)
+  position_x          Int      @default(60)
+  position_y          Int      @default(820)
+  width               Int      @default(760)
+  height              Int      @default(170)
+  opacity             Float    @default(0.95) @db.Float
+  text_color          String   @default("#ffffff") @db.VarChar(20)
+  bg_color            String   @default("#160d2d") @db.VarChar(20)
+  accent_color        String   @default("#e11d72") @db.VarChar(20)
+  gradient            String   @default("linear-gradient(135deg, #1b0c38 0%, #4a0e4e 55%, #e11d72 100%)") @db.VarChar(250)
+  animation           String   @default("slide-up") @db.VarChar(40)
+  updated_at          DateTime @default(now()) @db.DateTime(0)
+
+  @@id([tenant_id, channel_id])
+  @@map("channel_music_cg_settings")
+}
+
+model ProgrammeCGSetting {
+  tenant_id                Int
+  channel_id               Int
+  enabled                  Boolean  @default(true)
+  show_at_start            Boolean  @default(true)
+  start_delay_sec          Int      @default(10)
+  start_duration_sec       Int      @default(12)
+  show_before_end          Boolean  @default(true)
+  end_lead_sec             Int      @default(45)
+  end_duration_sec         Int      @default(12)
+  template_id              Int?
+  template_key             String   @default("programme_now_next") @db.VarChar(80)
+  eligible_categories_json String   @default("[\"news\",\"talk\",\"special\",\"music\",\"live\"]") @db.VarChar(400)
+  eligible_schedule_ids    String   @default("[]") @db.VarChar(400)
+  show_title               Boolean  @default(true)
+  show_category            Boolean  @default(true)
+  show_time                Boolean  @default(true)
+  show_next                Boolean  @default(true)
+  position_x               Int      @default(1180)
+  position_y               Int      @default(120)
+  width                    Int      @default(680)
+  height                   Int      @default(150)
+  animation                String   @default("slide-left") @db.VarChar(40)
+  updated_at               DateTime @default(now()) @db.DateTime(0)
+
+  @@id([tenant_id, channel_id])
+  @@map("programme_cg_settings")
+}
+
+model Playlist {
+  id         Int            @id @default(autoincrement())
+  tenant_id  Int?
+  channel_id Int?
+  name       String         @db.VarChar(220)
+  loop       Boolean?       @default(true)
+  created_at DateTime?      @default(now()) @db.DateTime(0)
+  items      PlaylistItem[]
+
+  @@index([tenant_id], map: "ix_playlists_tenant_id")
+  @@index([channel_id], map: "ix_playlists_channel_id")
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id          Int       @id @default(autoincrement())
+  tenant_id   Int?
+  channel_id  Int?
+  playlist_id Int?
+  media_id    Int
+  position    Int?      @default(0)
+  playlist    Playlist? @relation(fields: [playlist_id], references: [id], onDelete: Cascade)
+  media       Media     @relation(fields: [media_id], references: [id])
+
+  @@index([tenant_id], map: "ix_playlist_items_tenant_id")
+  @@index([channel_id], map: "ix_playlist_items_channel_id")
+  @@index([playlist_id], map: "ix_playlist_items_playlist_id")
+  @@map("playlist_items")
+}
+
+model CGTemplate {
+  id               Int      @id @default(autoincrement())
+  tenant_id        Int?
+  channel_id       Int?
+  template_key     String?  @db.VarChar(80)
+  name             String   @db.VarChar(150)
+  category         String   @db.VarChar(40)
+  animation        String?  @default("slide") @db.VarChar(40)
+  accent           String?  @default("#e11d72") @db.VarChar(20)
+  bg_color         String?  @default("#150d29") @db.VarChar(20)
+  text_color       String?  @default("#ffffff") @db.VarChar(20)
+  gradient         String?  @default("") @db.VarChar(250)
+  font_family      String?  @default("Nirmala UI, Noto Sans Devanagari, Inter, sans-serif") @db.VarChar(140)
+  font_size        Int?     @default(32)
+  font_weight      String?  @default("700") @db.VarChar(20)
+  text_align       String?  @default("left") @db.VarChar(20)
+  position_x       Int?     @default(40)
+  position_y       Int?     @default(820)
+  width            Int?     @default(680)
+  height           Int?     @default(130)
+  z_index          Int?     @default(10)
+  opacity          Float?   @default(0.95) @db.Float
+  border_radius    Int?     @default(12)
+  border_width     Int?     @default(2)
+  border_color     String?  @default("#e11d72") @db.VarChar(20)
+  shadow           String?  @default("0 12px 32px rgba(0,0,0,0.55)") @db.VarChar(140)
+  zone             String?  @default("auto") @db.VarChar(40)
+  priority         Int?     @default(50)
+  speed            Int?     @default(100)
+  enter_transition String?  @default("slide-left") @db.VarChar(40)
+  exit_transition  String?  @default("fade-out") @db.VarChar(40)
+  anim_duration_ms Int?     @default(450)
+  sample_text      String?  @db.Text
+  sample_subtext   String?  @db.Text
+  style_json       String?  @db.Text
+  enabled          Boolean? @default(true)
+
+  @@index([tenant_id], map: "ix_cg_templates_tenant_id")
+  @@index([channel_id], map: "ix_cg_templates_channel_id")
+  @@map("cg_templates")
+}
+
+model CGTemplateVersion {
+  id            Int      @id @default(autoincrement())
+  tenant_id     Int
+  channel_id    Int
+  template_id   Int
+  version       Int      @default(1)
+  name          String   @db.VarChar(150)
+  snapshot_json String   @db.Text
+  created_by    Int?
+  created_at    DateTime @default(now()) @db.DateTime(0)
+
+  @@index([template_id], map: "ix_cg_template_versions_template")
+  @@map("cg_template_versions")
+}
+
+model CGLayoutPreset {
+  id          Int      @id @default(autoincrement())
+  tenant_id   Int
+  channel_id  Int
+  name        String   @db.VarChar(150)
+  description String?  @db.VarChar(250)
+  resolution  String   @default("1080p") @db.VarChar(20)
+  layout_json String   @db.Text
+  is_default  Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id, channel_id], map: "ix_cg_layout_presets_tc")
+  @@map("cg_layout_presets")
+}
+
+model CGPreviewState {
+  tenant_id   Int
+  channel_id  Int
+  layer_id    Int
+  template_id Int?
+  title       String?  @db.VarChar(200)
+  text        String?  @db.Text
+  subtext     String?  @db.Text
+  position_x  Int      @default(40)
+  position_y  Int      @default(820)
+  width       Int      @default(680)
+  height      Int      @default(130)
+  z_index     Int      @default(10)
+  style_json  String?  @db.Text
+  updated_by  Int?
+  updated_at  DateTime @default(now()) @db.DateTime(0)
+
+  @@id([tenant_id, channel_id, layer_id])
+  @@map("cg_preview_states")
+}
+
+model CGContent {
+  id          Int       @id @default(autoincrement())
+  tenant_id   Int?
+  channel_id  Int?
+  title       String    @db.VarChar(200)
+  category    String    @db.VarChar(40)
+  text        String?   @db.Text
+  subtext     String?   @db.Text
+  status      String?   @default("draft") @db.VarChar(30)
+  template_id Int?
+  updated_at  DateTime? @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id], map: "ix_cg_content_tenant_id")
+  @@index([channel_id], map: "ix_cg_content_channel_id")
+  @@map("cg_content")
+}
+
+model CG {
+  id               Int       @id @default(autoincrement())
+  tenant_id        Int?
+  channel_id       Int?
+  name             String    @db.VarChar(180)
+  category         String    @db.VarChar(40)
+  text             String?   @db.Text
+  subtext          String?   @db.Text
+  active           Boolean?  @default(false)
+  image_media_id   Int?
+  speed            Int?      @default(85)
+  color            String?   @default("#e11d72") @db.VarChar(20)
+  bg_color         String?   @default("#150d29") @db.VarChar(20)
+  text_color       String?   @default("#ffffff") @db.VarChar(20)
+  gradient         String?   @default("") @db.VarChar(250)
+  font_family      String?   @default("Nirmala UI, Noto Sans Devanagari, Inter, sans-serif") @db.VarChar(140)
+  font_size        Int?      @default(32)
+  font_weight      String?   @default("700") @db.VarChar(20)
+  text_align       String?   @default("left") @db.VarChar(20)
+  template_id      Int?
+  content_id       Int?
+  animation        String?   @default("slide") @db.VarChar(40)
+  position_x       Int?      @default(0)
+  position_y       Int?      @default(0)
+  width            Int?      @default(680)
+  height           Int?      @default(130)
+  z_index          Int?      @default(10)
+  opacity          Float?    @default(0.95) @db.Float
+  border_radius    Int?      @default(12)
+  border_width     Int?      @default(2)
+  border_color     String?   @default("#e11d72") @db.VarChar(20)
+  shadow           String?   @default("0 12px 32px rgba(0,0,0,0.55)") @db.VarChar(140)
+  safe_anchor      String?   @default("auto") @db.VarChar(40)
+  priority         Int?      @default(50)
+  locked           Boolean?  @default(false)
+  hidden           Boolean?  @default(false)
+  enter_transition String?   @default("slide-left") @db.VarChar(40)
+  exit_transition  String?   @default("fade-out") @db.VarChar(40)
+  anim_duration_ms Int?      @default(450)
+  style_json       String?   @db.Text
+  start_offset_sec Int?      @default(0)
+  duration_sec     Int?      @default(0)
+  updated_at       DateTime? @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id], map: "ix_cg_tenant_id")
+  @@index([channel_id], map: "ix_cg_channel_id")
+  @@map("cg")
+}
+
+model Schedule {
+  id                  Int       @id @default(autoincrement())
+  tenant_id           Int?
+  channel_id          Int?
+  name                String    @db.VarChar(180)
+  kind                String    @db.VarChar(40)
+  target_id           Int
+  starts_at           String    @db.VarChar(48)
+  duration_sec        Int?      @default(3600)
+  repeat              String?   @default("none") @db.VarChar(20)
+  priority            Int?      @default(50)
+  programme_category  String?   @default("general") @db.VarChar(60)
+  enable_programme_cg Boolean?  @default(false)
+  enabled             Boolean?  @default(true)
+  status              String?   @default("scheduled") @db.VarChar(30)
+  last_run_at         DateTime? @db.DateTime(0)
+
+  @@index([tenant_id], map: "ix_schedules_tenant_id")
+  @@index([channel_id], map: "ix_schedules_channel_id")
+  @@map("schedules")
+}
+
+model Output {
+  id              Int       @id @default(autoincrement())
+  tenant_id       Int?
+  channel_id      Int?
+  name            String    @db.VarChar(150)
+  protocol        String    @db.VarChar(20)
+  url             String    @db.Text
+  stream_key      String?   @db.VarChar(200)
+  latency_ms      Int?      @default(250)
+  passphrase      String?   @db.VarChar(120)
+  stream_mode     String?   @default("caller") @db.VarChar(20)
+  pkt_size        Int?      @default(1316)
+  ttl             Int?      @default(64)
+  hls_segment_sec Int?      @default(4)
+  hls_window_size Int?      @default(6)
+  config_json     String?   @db.Text
+  enabled         Boolean?  @default(false)
+  created_at      DateTime? @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id], map: "ix_outputs_tenant_id")
+  @@index([channel_id], map: "ix_outputs_channel_id")
+  @@map("outputs")
+}
+
+model InputStream {
+  id            Int       @id @default(autoincrement())
+  tenant_id     Int?
+  channel_id    Int?
+  name          String    @db.VarChar(150)
+  source_type   String?   @default("live_input") @db.VarChar(40)
+  protocol      String    @default("rtmp") @db.VarChar(20)
+  url           String    @db.Text
+  backup_url    String?   @db.Text
+  latency_ms    Int?      @default(250)
+  passphrase    String?   @db.VarChar(120)
+  stream_mode   String?   @default("caller") @db.VarChar(20)
+  buffer_ms     Int?      @default(1000)
+  auto_fallback Boolean?  @default(true)
+  enabled       Boolean?  @default(true)
+  is_live       Boolean?  @default(false)
+  created_at    DateTime? @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id], map: "ix_input_streams_tenant_id")
+  @@index([channel_id], map: "ix_input_streams_channel_id")
+  @@map("input_streams")
+}
+
+model Setting {
+  tenant_id  Int
+  channel_id Int
+  key        String @db.VarChar(75)
+  value      String @db.VarChar(250)
+
+  @@id([tenant_id, channel_id, key])
+  @@map("settings")
+}
+
+model Audit {
+  id         Int       @id @default(autoincrement())
+  tenant_id  Int?
+  channel_id Int?
+  user_id    Int?
+  action     String?   @db.VarChar(100)
+  detail     String?   @db.VarChar(300)
+  created_at DateTime? @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id], map: "ix_audit_tenant_id")
+  @@index([channel_id], map: "ix_audit_channel_id")
+  @@map("audit")
+}

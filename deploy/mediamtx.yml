@@ -1,0 +1,28 @@
+logLevel: warn
+rtsp: no
+webrtc: no
+moq: no
+srt: yes
+srtAddress: :8890
+rtmp: yes
+rtmpAddress: :1935
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigins: ['*']
+hlsAlwaysRemux: yes
+hlsVariant: mpegts
+hlsSegmentCount: 5
+hlsSegmentDuration: 1s
+paths:
+  channel1:
+    source: publisher
+    overridePublisher: yes
+    alwaysAvailable: yes
+    alwaysAvailableTracks:
+      - codec: H264
+      - codec: MPEG4Audio
+        sampleRate: 48000
+        channelCount: 2
+  all_others:
+    source: publisher
+    overridePublisher: yes

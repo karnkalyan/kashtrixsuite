@@ -1,0 +1,15 @@
+:80 {
+  encode zstd gzip
+  handle_path /hls/* {
+    reverse_proxy mediamtx:8888
+  }
+  handle {
+    reverse_proxy app:8000
+  }
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+  }
+  @not_embed { not path /embed.html }
+  header @not_embed X-Frame-Options DENY
+}
