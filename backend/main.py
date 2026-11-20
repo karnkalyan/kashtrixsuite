@@ -2013,9 +2013,11 @@ async def setting_update(body: SettingsUpdate, user: User = Depends(require('adm
     ensure_instance(user)
     ent = get_tenant_entitlements(db, user.tenant_id)
     settings = body.values
-    allowed_keys = {'base_playlist', 'resolution', 'fps', 'video_bitrate', 'preset', 'audio_bitrate', 'keyint_sec', 'rate_control', 'timezone', 'master_volume', 'stream_volume'}
+    allowed_keys = {'base_playlist', 'resolution', 'fps', 'video_bitrate', 'preset', 'audio_bitrate', 'keyint_sec', 'rate_control', 'timezone', 'master_volume', 'stream_volume', 'scan_mode'}
     if not set(settings).issubset(allowed_keys):
         raise HTTPException(422, 'Unsupported settings fields')
+    if 'scan_mode' in settings and settings['scan_mode'] not in ('progressive', 'interlaced'):
+        raise HTTPException(422, 'Scan mode must be progressive or interlaced')
     if 'master_volume' in settings:
         try:
             mv = int(settings['master_volume'])

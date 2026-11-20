@@ -839,11 +839,14 @@ class BroadcastEngine:
             master_vol = max(0, min(200, int(settings.get('master_volume') or 100)))
         except (ValueError, TypeError):
             master_vol = 100
+        scan_mode = (settings.get('scan_mode') or 'progressive').strip().lower()
+        ff_threads = os.getenv('FFMPEG_THREADS', '4')
         args += [
             '-map', audio_map,
             '-c:v', 'libx264',
             '-preset', settings.get('preset', 'veryfast'),
             '-tune', 'zerolatency',
+            '-threads', ff_threads,
             '-pix_fmt', 'yuv420p',
             '-r', str(fps),
             '-g', str(gop),
@@ -851,6 +854,8 @@ class BroadcastEngine:
             '-maxrate', maxrate,
             '-bufsize', str(rate_kbps * 2) + 'k',
         ]
+        if scan_mode == 'interlaced':
+            args += ['-flags', '+ilme+ildct', '-top', '1', '-x264-params', 'tff=1']
         if master_vol != 100:
             args += ['-af', f'volume={master_vol / 100.0:.2f}']
         args += [

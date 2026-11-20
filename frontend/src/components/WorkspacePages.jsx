@@ -2444,6 +2444,7 @@ export function SettingsPage({ data, mutate, onUpgrade }) {
   const [preset, setPreset] = useState(data.settings?.preset || 'veryfast');
   const [playlist, setPlaylist] = useState(data.settings?.base_playlist || '1');
   const [timezone, setTimezone] = useState(data.settings?.timezone || 'Asia/Kathmandu');
+  const [scanMode, setScanMode] = useState(data.settings?.scan_mode || 'progressive');
 
   useEffect(() => {
     setResolution(data.settings?.resolution || '1080p');
@@ -2452,7 +2453,8 @@ export function SettingsPage({ data, mutate, onUpgrade }) {
     setPreset(data.settings?.preset || 'veryfast');
     setPlaylist(data.settings?.base_playlist || '1');
     setTimezone(data.settings?.timezone || 'Asia/Kathmandu');
-  }, [data.settings?.resolution, data.settings?.video_bitrate, data.settings?.fps, data.settings?.preset, data.settings?.base_playlist, data.settings?.timezone]);
+    setScanMode(data.settings?.scan_mode || 'progressive');
+  }, [data.settings?.resolution, data.settings?.video_bitrate, data.settings?.fps, data.settings?.preset, data.settings?.base_playlist, data.settings?.timezone, data.settings?.scan_mode]);
 
   return (
     <>
@@ -2486,6 +2488,12 @@ export function SettingsPage({ data, mutate, onUpgrade }) {
                 {['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium'].map(v => <option key={v}>{v}</option>)}
               </select>
             </Field>
+            <Field label="Scan mode (Progressive p / Interlaced i)">
+              <select value={scanMode} onChange={e => setScanMode(e.target.value)}>
+                <option value="progressive">Progressive (e.g. 1080p / 720p)</option>
+                <option value="interlaced">Interlaced TFF (e.g. 1080i Broadcast)</option>
+              </select>
+            </Field>
             <Field label="24/7 default playlist">
               <select value={playlist} onChange={e => setPlaylist(e.target.value)}>
                 {(data.playlists || []).map(p => <option value={p.id} key={p.id}>{p.name}</option>)}
@@ -2496,7 +2504,7 @@ export function SettingsPage({ data, mutate, onUpgrade }) {
                 {TIMEZONE_OPTIONS.map(tz => <option key={tz} value={tz}>{tz}</option>)}
               </select>
             </Field>
-            <B variant="primary" icon={Save} onClick={() => mutate('/settings', 'POST', { values: { resolution, video_bitrate: bitrate, fps, preset, base_playlist: playlist, timezone } })}>
+            <B variant="primary" icon={Save} onClick={() => mutate('/settings', 'POST', { values: { resolution, video_bitrate: bitrate, fps, preset, scan_mode: scanMode, base_playlist: playlist, timezone } })}>
               Save & Restart Encoder
             </B>
           </div>
