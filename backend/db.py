@@ -170,17 +170,19 @@ def ensure_mysql_schema(url: str):
 
     if not has_tables:
         env = os.environ.copy()
-        env['PRISMA_DATABASE_URL'] = url
+        prisma_url = url.replace('mysql+pymysql://', 'mysql://')
+        env['PRISMA_DATABASE_URL'] = prisma_url
         scripts_dir = str(Path(sys.executable).resolve().parent / 'Scripts')
         user_scripts = str(Path.home() / 'AppData' / 'Roaming' / 'Python' / f'Python{sys.version_info.major}{sys.version_info.minor}' / 'Scripts')
         env['PATH'] = f"{user_scripts}{os.pathsep}{scripts_dir}{os.pathsep}{env.get('PATH', '')}"
-        subprocess.run(
+        res = subprocess.run(
             [sys.executable, '-m', 'prisma', 'db', 'push', f'--schema={SCHEMA_PATH}', '--skip-generate', '--accept-data-loss'],
             env=env,
-            check=True,
             capture_output=True,
             text=True,
         )
+        if res.returncode != 0:
+            raise RuntimeError(f"prisma db push failed ({res.returncode}): {res.stdout}\n{res.stderr}")
     _initialized_urls.add(url)
 
 
