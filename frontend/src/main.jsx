@@ -343,16 +343,22 @@ function App() {
     await mutate('/subscriptions/activate', 'POST', { plan: planId, reason: 'Activated via Subscriptions dashboard' }, `Activated ${planId.replace(/_/g, ' ').toUpperCase()} Demo Plan`);
   };
 
-  if (!token) return <Login onAuth={() => setToken(sessionStorage.getItem('kashtrix_token'))} />;
-
   const isEmbedMode = Boolean(new URLSearchParams(window.location.search).get('embed'));
   if (isEmbedMode) {
     return (
       <div style={{ width: '100vw', height: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        <OverlayStage data={data} large />
+        <iframe
+          src="/embed.html"
+          title="Kashtrix Live Embed Player"
+          style={{ width: '100%', height: '100%', border: 0 }}
+          allow="autoplay; fullscreen"
+          allowFullScreen
+        />
       </div>
     );
   }
+
+  if (!token) return <Login onAuth={() => setToken(sessionStorage.getItem('kashtrix_token'))} />;
 
   const onAir = data.engine?.state === 'on_air' || data.engine?.state === 'preview';
   const title = sections.find(s => s[0] === page)?.[1] || 'Overview';

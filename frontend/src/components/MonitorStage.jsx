@@ -549,6 +549,11 @@ export function CustomBroadcastHlsPlayer({ data, onSwitchDirect }) {
       </div>
 
       {/* Standby / Reconnect Slate */}
+      {data?.settings?.scan_mode === 'interlaced' && !streamError && (
+        <div style={{ position: 'absolute', bottom: 48, left: 12, zIndex: 12, padding: '6px 10px', borderRadius: 6, background: 'rgba(15, 23, 42, 0.88)', border: '1px solid rgba(250, 204, 21, 0.45)', color: '#fde047', fontSize: 11 }}>
+          Interlaced (1080i) output active — browser HLS preview requires Progressive (1080p) in Settings.
+        </div>
+      )}
       {streamError && (
         <div className="kx-hls-slate">
           <Radio size={34} color="#e11d72" />

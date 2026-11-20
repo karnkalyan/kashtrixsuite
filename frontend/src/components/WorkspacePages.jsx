@@ -1530,7 +1530,7 @@ export function Streaming({ data, submit, remove, mutate, onUpgrade, navigate })
                       setEditing(o.id);
                       setName(o.name);
                       setProtocol(o.protocol);
-                      setUrl(o.url && !o.url.includes('••••') ? o.url : getProtocolDefaultUrl(o.protocol));
+                      setUrl(o.edit_url || (o.url && !o.url.includes('••••') ? o.url : getProtocolDefaultUrl(o.protocol)));
                       setStreamKey(o.stream_key || '');
                       setStreamMode(o.stream_mode || 'caller');
                       setLatencyMs(o.latency_ms || 120);

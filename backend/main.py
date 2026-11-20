@@ -368,7 +368,7 @@ def resource_list(db: Prisma, key: str, user: User):
             for x in tenant_query(db, Schedule, user.tenant_id)
         ]
     if key == 'outputs':
-        return [dict(object_dict(x), url=secret_mask(x.url)) for x in tenant_query(db, Output, user.tenant_id)]
+        return [dict(object_dict(x), url=secret_mask(x.url), edit_url=x.url) for x in tenant_query(db, Output, user.tenant_id)]
     return [object_dict(x) for x in tenant_query(db, RESOURCES[key], user.tenant_id)]
 
 
