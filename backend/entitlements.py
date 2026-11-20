@@ -513,7 +513,15 @@ def seed_plans(db: Prisma, tenant_id: int = 1, channel_id: int = 1):
     compute_resource_usage(db, tenant_id, channel_id)
 
 
+_PLAN_CATALOG_CACHE: tuple[float, list[dict]] | None = None
+
+
 def get_plan_catalog(db: Prisma) -> list[dict]:
+    global _PLAN_CATALOG_CACHE
+    import time as _t
+    now = _t.monotonic()
+    if _PLAN_CATALOG_CACHE and (now - _PLAN_CATALOG_CACHE[0]) < 60.0:
+        return _PLAN_CATALOG_CACHE[1]
     rows = db.subscriptionplan.find_many(order={'sort_order': 'asc'})
     if len(rows) < len(PLAN_DEFINITIONS):
         seed_plans(db)
@@ -544,6 +552,7 @@ def get_plan_catalog(db: Prisma) -> list[dict]:
                 'entitlements': ent,
             }
         )
+    _PLAN_CATALOG_CACHE = (now, catalog)
     return catalog
 
 

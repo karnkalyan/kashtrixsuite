@@ -430,27 +430,40 @@ def snapshot(db: Prisma, user: User) -> dict:
 
 
 async def notify(event_type: str | None = None, payload_data: dict | None = None):
+    if not client_ws:
+        return
+    snap_by_user: dict[int, dict] = {}
+    with SessionLocal() as db:
+        for ws in list(client_ws):
+            try:
+                user_id = ws.state.user_id
+                tenant_id = getattr(ws.state, 'tenant_id', APP_TENANT)
+                if tenant_id != APP_TENANT:
+                    continue
+                if user_id not in snap_by_user:
+                    u = db.user.find_unique(where={'id': user_id})
+                    if u and u.enabled:
+                        snap_by_user[user_id] = snapshot(db, u)
+            except Exception:
+                client_ws.discard(ws)
     for ws in list(client_ws):
         try:
             user_id = ws.state.user_id
-            tenant_id = getattr(ws.state, 'tenant_id', APP_TENANT)
-            if tenant_id != APP_TENANT:
+            snap = snap_by_user.get(user_id)
+            if not snap:
                 continue
-            with SessionLocal() as db:
-                u = db.user.find_unique(where={'id': user_id})
-                if u and u.enabled:
-                    snap = snapshot(db, u)
-                    if event_type:
-                        await ws.send_json(
-                            {
-                                'type': event_type,
-                                'tenant_id': APP_TENANT,
-                                'channel_id': APP_CHANNEL,
-                                'payload': payload_data or {},
-                                'data': snap,
-                            }
-                        )
-                    await ws.send_json({'type': 'state', 'data': snap})
+            if event_type:
+                await ws.send_json(
+                    {
+                        'type': event_type,
+                        'tenant_id': APP_TENANT,
+                        'channel_id': APP_CHANNEL,
+                        'payload': payload_data or {},
+                        'data': snap,
+                    }
+                )
+            else:
+                await ws.send_json({'type': 'state', 'data': snap})
         except Exception:
             client_ws.discard(ws)
 
@@ -1471,7 +1484,6 @@ async def take_cg_layer_on_air(
     compute_resource_usage(db, user.tenant_id, APP_CHANNEL)
     audit(db, user, 'cg take on air', f"{updated.name} ({updated.category})")
     out = object_dict(updated)
-    await notify('cg.onair.changed', {'action': 'take', 'layer': out})
     await notify('cg.activated', out)
     return {**out, 'ok': True, 'layer': out}
 
@@ -1491,7 +1503,6 @@ async def cut_cg_layer_off_air(
     compute_resource_usage(db, user.tenant_id, APP_CHANNEL)
     audit(db, user, 'cg cut off air', f"{updated.name} ({updated.category})")
     out = object_dict(updated)
-    await notify('cg.onair.changed', {'action': 'cut', 'layer': out})
     await notify('cg.deactivated', out)
     return {**out, 'ok': True, 'layer': out}
 
