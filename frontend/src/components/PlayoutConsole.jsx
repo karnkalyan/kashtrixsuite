@@ -754,7 +754,7 @@ export function PlayoutConsole({
               TAKE
             </button>
             <div className="kx-format-spec">
-              <strong>PROGRAM • 16:9 ({data.settings?.resolution || '1080p'} @ {data.settings?.fps || 25}fps)</strong>
+              <strong>PROGRAM • 16:9 ({data.settings?.scan_mode === 'interlaced' ? (data.settings?.resolution || '1080p').replace(/p$/i, 'i') : (data.settings?.resolution || '1080p')} @ {data.settings?.fps || 25}fps)</strong>
               <span>
                 16:9 Widescreen ({data.settings?.width || 1920}×{data.settings?.height || 1080}) • {data.settings?.fps || 25} frames/s • {data.settings?.video_bitrate || '4500k'}
               </span>
@@ -1366,7 +1366,7 @@ export function PlayoutConsole({
             <span className="kx-mini-bar"><i style={{ width: `${Math.min(100, telemetry.disk_pct)}%` }} /></span>
           </span>
           <span className="kx-sys-item">
-            OUTPUT <i>●</i> <strong>{data.settings?.resolution || '1080p'}/{data.settings?.fps || 25} ({data.usage?.active_outputs || 0}/{entitlements?.max_outputs || 8} STREAMS)</strong>
+            OUTPUT <i>●</i> <strong>{data.settings?.scan_mode === 'interlaced' ? (data.settings?.resolution || '1080p').replace(/p$/i, 'i') : (data.settings?.resolution || '1080p')}/{data.settings?.fps || 25} ({data.usage?.active_outputs || 0}/{entitlements?.max_outputs || 8} STREAMS)</strong>
           </span>
           <span className="kx-sys-item">
             USER <strong>{data.account?.username || 'admin'}</strong>

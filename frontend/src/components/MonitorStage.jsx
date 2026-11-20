@@ -723,7 +723,7 @@ export function LiveMonitor({ data, large = false, compact = false }) {
         </div>
         <div className="monitor-timecode">
           <span>{fmt(posSec)} {durSec > 0 ? `/ ${fmt(durSec)} (${Math.round(pct)}%)` : ''}</span>
-          <span>{(data.cg || []).filter(c => c.effective_active).length} CG Active • 16:9 {data.settings?.resolution || '1080p'}@{data.settings?.fps || 25}fps</span>
+          <span>{(data.cg || []).filter(c => c.effective_active).length} CG Active • 16:9 {data.settings?.scan_mode === 'interlaced' ? (data.settings?.resolution || '1080p').replace(/p$/i, 'i') : (data.settings?.resolution || '1080p')}@{data.settings?.fps || 25}fps</span>
         </div>
       </div>
     </div>
