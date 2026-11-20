@@ -5,7 +5,7 @@ import sys
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 import pymysql
 from dotenv import load_dotenv
 from prisma import Prisma
@@ -152,8 +152,8 @@ def ensure_mysql_schema(url: str):
     parsed = urlparse(url)
     host = parsed.hostname or '127.0.0.1'
     port = parsed.port or 3306
-    user = parsed.username or 'root'
-    password = parsed.password or ''
+    user = unquote(parsed.username) if parsed.username else 'root'
+    password = unquote(parsed.password) if parsed.password else ''
     dbname = (parsed.path or '/kashtrix').lstrip('/') or 'kashtrix'
 
     conn = pymysql.connect(host=host, port=port, user=user, password=password, autocommit=True)
