@@ -12,6 +12,7 @@ from pathlib import Path
 
 try:
     import psutil  # type: ignore
+    psutil.cpu_percent(interval=None)
 except ImportError:
     psutil = None
 
@@ -99,9 +100,16 @@ def get_hardware_info() -> dict:
         ram_free_gb = round(vm.available / (1024 ** 3), 1)
         ram_pct = round(vm.percent, 1)
         cpu_pct = round(psutil.cpu_percent(interval=None), 1)
+        if cpu_pct <= 0.0 or cpu_pct >= 100.0:
+            cpu_pct = round(psutil.cpu_percent(interval=0.05), 1)
         freq = psutil.cpu_freq()
         cpu_mhz = round(freq.current, 0) if freq else None
         boot_uptime_sec = int(max(0, time.time() - psutil.boot_time()))
+        try:
+            la = os.getloadavg()
+            load_avg = f'{la[0]:.2f} / {la[1]:.2f} / {la[2]:.2f}'
+        except (AttributeError, OSError):
+            load_avg = None
     else:
         ram_total_gb = 8.0
         ram_used_gb = 2.0
@@ -110,11 +118,13 @@ def get_hardware_info() -> dict:
         cpu_pct = 10.0
         cpu_mhz = None
         boot_uptime_sec = 0
+        load_avg = None
 
     res = {
         **_STATIC_HW_CACHE,
         'cpu_pct': cpu_pct,
         'cpu_mhz': cpu_mhz,
+        'load_avg': load_avg,
         'ram_total_gb': ram_total_gb,
         'ram_used_gb': ram_used_gb,
         'ram_free_gb': ram_free_gb,

@@ -66,7 +66,7 @@ export function Overview({ data, control, navigate, toggleCgLayer }) {
                 ['Host / Node', data.hardware?.hostname || '—'],
                 ['OS / Platform', data.hardware?.os || '—'],
                 ['CPU Model', data.hardware?.cpu_model || '—'],
-                ['CPU Allocation & Load', `${data.hardware?.cpu_cores ?? '—'} Cores / ${data.hardware?.cpu_threads ?? '—'} Threads (${data.hardware?.cpu_pct ?? 0}% used)`],
+                ['CPU Allocation & Load', `${data.hardware?.cpu_cores ?? '—'} Cores / ${data.hardware?.cpu_threads ?? '—'} Threads (${data.hardware?.cpu_pct ?? 0}% used${data.hardware?.cpu_mhz ? ` • ${data.hardware.cpu_mhz} MHz` : ''}${data.hardware?.load_avg ? ` • Load: ${data.hardware.load_avg}` : ''})`],
                 ['Memory (RAM)', `${data.hardware?.ram_used_gb ?? 0} GB used / ${data.hardware?.ram_total_gb ?? 0} GB total (${data.hardware?.ram_free_gb ?? 0} GB free • ${data.hardware?.ram_pct ?? 0}%)`],
                 ['Storage (Disk)', `${data.hardware?.disk_used_gb ?? 0} GB used / ${data.hardware?.disk_total_gb ?? 0} GB total (${data.hardware?.disk_free_gb ?? 0} GB free • ${data.hardware?.disk_pct ?? 0}%)`],
                 ['GPU / Display Adapter', data.hardware?.gpu || '—']
