@@ -51,6 +51,9 @@ def _find_browser_exe() -> str | None:
         r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
         shutil.which('google-chrome') or '',
         shutil.which('chromium') or '',
+        shutil.which('chromium-browser') or '',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
         shutil.which('msedge') or '',
     ):
         if candidate and Path(candidate).exists():
@@ -121,7 +124,7 @@ class HtmlCgCompositor:
 
         threading.Thread(target=self._tcp_accept_loop, daemon=True, name=f'cg-pipe-{self.tenant_id}-{self.channel_id}').start()
         threading.Thread(target=self._browser_loop, args=(exe,), daemon=True, name=f'cg-chrome-{self.tenant_id}-{self.channel_id}').start()
-        self._ready_event.wait(timeout=6.0)
+        self._ready_event.wait(timeout=12.0)
         return self._port if self._available else None
 
     def update_state(self, layers: list[dict[str, Any]], cg_content: list[dict[str, Any]], server_time: str):
@@ -194,13 +197,13 @@ class HtmlCgCompositor:
                 browser = p.chromium.launch(
                     executable_path=exe,
                     headless=True,
-                    args=['--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage'],
+                    args=['--disable-gpu', '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
                 )
                 page = browser.new_page(viewport={'width': 1280, 'height': 720})
                 cdp = page.context.new_cdp_session(page)
                 cdp.send('Emulation.setDefaultBackgroundColorOverride', {'color': {'r': 0, 'g': 0, 'b': 0, 'a': 0}})
                 url = _pick_frontend_url(self.tenant_id, self.channel_id)
-                page.goto(url, wait_until='networkidle', timeout=15000)
+                page.goto(url, wait_until='domcontentloaded', timeout=15000)
                 page.wait_for_function('() => typeof window.__setCgRenderState === "function"', timeout=10000)
                 self._ready_event.set()
                 last_sig = ''

@@ -616,9 +616,17 @@ class BroadcastEngine:
         ):
             if Path(win_font).exists():
                 return win_font
+        for linux_font in (
+            '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
+        ):
+            if Path(linux_font).exists():
+                return linux_font
         try:
             found = subprocess.run(
-                ['fc-match', '-f', '%{file}', 'Noto Sans Devanagari'],
+                ['fc-match', '-f', '%{file}', 'sans:bold'],
                 text=True,
                 capture_output=True,
                 timeout=5,
@@ -723,6 +731,8 @@ class BroadcastEngine:
         burn_raw_drawtext = (cg_port is None) and (os.getenv('FFMPEG_RAW_DRAWTEXT', '1') == '1')
         for cat in CATEGORIES:
             if not burn_raw_drawtext:
+                continue
+            if cat not in bycat:
                 continue
             if cat == 'hebron_logo':
                 continue
