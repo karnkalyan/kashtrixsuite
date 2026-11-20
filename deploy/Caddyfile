@@ -10,6 +10,6 @@
     X-Content-Type-Options nosniff
     Referrer-Policy strict-origin-when-cross-origin
   }
-  @not_embed { not path /embed.html }
+  @not_embed not path /embed.html
   header @not_embed X-Frame-Options DENY
 }
