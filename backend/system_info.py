@@ -18,6 +18,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 
 _STATIC_HW_CACHE: dict | None = None
+_HW_CACHE: tuple[float, dict] | None = None
 _FONTS_CACHE: tuple[float, dict] | None = None
 
 
@@ -71,7 +72,10 @@ def _get_gpu_name() -> str:
 
 
 def get_hardware_info() -> dict:
-    global _STATIC_HW_CACHE
+    global _STATIC_HW_CACHE, _HW_CACHE
+    now = time.monotonic()
+    if _HW_CACHE and (now - _HW_CACHE[0]) < 2.0:
+        return _HW_CACHE[1]
     if _STATIC_HW_CACHE is None:
         _STATIC_HW_CACHE = {
             'hostname': platform.node(),
@@ -107,7 +111,7 @@ def get_hardware_info() -> dict:
         cpu_mhz = None
         boot_uptime_sec = 0
 
-    return {
+    res = {
         **_STATIC_HW_CACHE,
         'cpu_pct': cpu_pct,
         'cpu_mhz': cpu_mhz,
@@ -122,6 +126,8 @@ def get_hardware_info() -> dict:
         'boot_uptime_sec': boot_uptime_sec,
         'python_version': platform.python_version(),
     }
+    _HW_CACHE = (now, res)
+    return res
 
 
 def _clean_font_name(raw_name: str) -> str:

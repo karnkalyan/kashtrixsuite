@@ -341,9 +341,10 @@ def resource_list(db: Prisma, key: str, user: User):
             m.media_id: object_dict(m)
             for m in db.musicmetadata.find_many(where={'tenant_id': user.tenant_id, 'channel_id': APP_CHANNEL})
         }
+        media_by_id = {m.id: m for m in tenant_query(db, Media, user.tenant_id)}
         out = []
         for x in items:
-            m = db.media.find_unique(where={'id': x.media_id})
+            m = media_by_id.get(x.media_id)
             out.append(
                 dict(
                     object_dict(x),

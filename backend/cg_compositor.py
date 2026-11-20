@@ -88,10 +88,11 @@ class HtmlCgCompositor:
         self._ready_event = threading.Event()
 
     def set_fps(self, fps: int):
+        max_fps = int(os.getenv('CG_MAX_FPS', '15' if os.name != 'nt' else '30'))
         try:
-            self._fps = max(24, min(30, int(fps)))
+            self._fps = max(12, min(max_fps, int(fps)))
         except (ValueError, TypeError):
-            self._fps = 30
+            self._fps = min(max_fps, 25)
 
     def ensure_started(self) -> int | None:
         with self._lock:
@@ -168,7 +169,7 @@ class HtmlCgCompositor:
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             next_send = time.monotonic()
             while True:
-                frame_interval = 1.0 / max(24, self._fps)
+                frame_interval = 1.0 / max(12, self._fps)
                 png = self._current_png
                 conn.sendall(png)
                 next_send += frame_interval
@@ -245,7 +246,7 @@ class HtmlCgCompositor:
                             log.debug('CG screenshot tick error: %s', exc)
                             time.sleep(0.15)
                     if is_anim:
-                        frame_interval = 1.0 / max(24, self._fps)
+                        frame_interval = 1.0 / max(12, self._fps)
                         elapsed = time.monotonic() - t0
                         if elapsed < frame_interval:
                             time.sleep(frame_interval - elapsed)

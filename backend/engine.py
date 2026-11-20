@@ -145,6 +145,7 @@ class BroadcastEngine:
             'completed_phases': set(),
         }
         self.graph_sig = None
+        self._cg_contents_cache: tuple[float, list[dict]] | None = None
         self.status = {
             'state': 'idle',
             'source': 'rotation',
@@ -533,6 +534,7 @@ class BroadcastEngine:
         layers = self.effective_layers(db)
         bycat = {v['category']: v for v in layers if v['effective_active']}
         all_bycat = {v['category']: v for v in layers}
+        tz = self.get_tz(db)
         for cat in CATEGORIES:
             c = bycat.get(cat)
             text = ((c['text'] or '') + ('\n' + c['subtext'] if c.get('subtext') else '')) if c else ''
@@ -540,7 +542,6 @@ class BroadcastEngine:
                 text = re.sub(r'<[^>]+>', ' ', text)
                 text = re.sub(r'\s+', ' ', text).strip()
             if cat == 'clock' and c:
-                tz = self.get_tz(db)
                 text = datetime.now(tz).strftime('%d %b %Y  %H:%M:%S %Z')
             if cat == 'hebron_logo' and c:
                 text = ''
@@ -562,19 +563,23 @@ class BroadcastEngine:
         use_html_cg = (not DRY_RUN) and (os.getenv('FFMPEG_HTML_CG', '1') == '1')
         if use_html_cg:
             try:
-                cg_contents = [
-                    {
-                        'id': c_row.id,
-                        'title': c_row.title,
-                        'category': c_row.category,
-                        'text': c_row.text,
-                        'subtext': c_row.subtext,
-                        'status': c_row.status,
-                        'template_id': c_row.template_id,
-                    }
-                    for c_row in db.cgcontent.find_many(where={'tenant_id': self.tenant_id})
-                ]
-                tz = self.get_tz(db)
+                now_mono = time.monotonic()
+                if not self._cg_contents_cache or (now_mono - self._cg_contents_cache[0]) >= 4.0:
+                    cg_contents = [
+                        {
+                            'id': c_row.id,
+                            'title': c_row.title,
+                            'category': c_row.category,
+                            'text': c_row.text,
+                            'subtext': c_row.subtext,
+                            'status': c_row.status,
+                            'template_id': c_row.template_id,
+                        }
+                        for c_row in db.cgcontent.find_many(where={'tenant_id': self.tenant_id})
+                    ]
+                    self._cg_contents_cache = (now_mono, cg_contents)
+                else:
+                    cg_contents = self._cg_contents_cache[1]
                 get_cg_compositor(self.tenant_id, self.channel_id).update_state(
                     layers, cg_contents, datetime.now(tz).isoformat()
                 )
@@ -709,9 +714,11 @@ class BroadcastEngine:
             specs['crawl'] = ('scroll', 'h-72', 34)
         font_escaped = esc(self.font())
         cg_port = None
+        cg_pipe_fps = fps
         if not DRY_RUN and os.getenv('FFMPEG_HTML_CG', '1') == '1':
             comp = get_cg_compositor(self.tenant_id, self.channel_id)
             comp.set_fps(fps)
+            cg_pipe_fps = comp._fps
             cg_port = comp.ensure_started()
         burn_raw_drawtext = (cg_port is None) and (os.getenv('FFMPEG_RAW_DRAWTEXT', '1') == '1')
         for cat in CATEGORIES:
@@ -772,7 +779,7 @@ class BroadcastEngine:
         args = [FFMPEG_BIN, '-hide_banner', '-loglevel', 'warning', '-nostdin'] + input_args
         if cg_port is not None:
             cg_idx = sum(1 for a in input_args if a == '-i')
-            args += ['-f', 'image2pipe', '-vcodec', 'png', '-r', str(fps), '-i', f'tcp://127.0.0.1:{cg_port}']
+            args += ['-f', 'image2pipe', '-vcodec', 'png', '-r', str(cg_pipe_fps), '-i', f'tcp://127.0.0.1:{cg_port}']
             graph = ['[0:v]' + ','.join(f) + '[v0]']
             cg_scale = f'[{cg_idx}:v]scale={w}:{h}:flags=bilinear[cg0]' if (w != 1280 or h != 720) else f'[{cg_idx}:v]null[cg0]'
             graph.append(cg_scale)
